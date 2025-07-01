@@ -1,6 +1,7 @@
 body {
-    font-family: sans-serif;
-    background: #7c6f5f;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    background: url('cactus-nordeste.png') no-repeat center center fixed;
+    background-size: cover;
     margin: 0;
     padding: 0;
     display: flex;
@@ -10,27 +11,69 @@ body {
 }
 
 .quiz-container {
-    background: #6cf07e;
-    border-radius: 10px;
-    padding: 30px;
-    width: 400px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.9); /* fundo levemente transparente */
+    border-radius: 20px;
+    padding: 5vw 3vw;
+    width: 90vw;
+    max-width: 400px;
+    min-width: 220px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
     text-align: center;
+    border: 4px solid #228B22; /* verde cacto */
+}
+
+.quiz-container h2 {
+    color: #2e4d1c;
+    margin-bottom: 10px;
+}
+
+.quiz-container p {
+    font-weight: bold;
+    color: #4b2e1e;
+    margin-top: 10px;
 }
 
 button {
-    margin-top: 20px;
-    padding: 10px 20px;
-    font-size: 16px;
+    margin: 10px 0;
+    padding: 14px 0;
+    width: 100%;
+    min-width: 120px;
+    font-size: 18px;
     cursor: pointer;
+    background-color: #ffd700; /* amarelo ouro */
+    border: none;
+    border-radius: 10px;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #ffa500; /* laranja caju */
+    color: #fff;
 }
 
 .correct {
-    background-color: #4caf50 !important; /* verde para acerto */
+    background-color: #4caf50 !important;
     color: #fff !important;
 }
 
 .incorrect {
-    background-color: #f44336 !important; /* vermelho para erro */
+    background-color: #f44336 !important;
     color: #fff !important;
+}
+
+@media (max-width: 500px) {
+    .quiz-container {
+        padding: 8vw 2vw;
+        max-width: 98vw;
+        min-width: 0;
+        border-width: 2px;
+    }
+    button {
+        font-size: 16px;
+        padding: 12px 0;
+        min-width: 80px;
+    }
+    h1, h2, h3 {
+        font-size: 1.2em;
+    }
 }

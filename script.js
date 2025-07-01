@@ -44,7 +44,7 @@ function shuffleArray(array) {
 
 function loadQuestion() {
     const q = quizData[currentQuestion];
-    const shuffledOptions = shuffleArray([...q.options]); // copia e embaralha
+    const shuffledOptions = shuffleArray([...q.options]);
     quizEl.innerHTML = `<h3>${q.question}</h3>` +
         shuffledOptions.map(opt =>
             `<button onclick="checkAnswer('${opt}')">${opt}</button>`
@@ -74,7 +74,7 @@ function checkAnswer(selected) {
         } else {
             showResult();
         }
-    }, 1000); // espera 1 segundo para mostrar o resultado visual
+    }, 1000);
 }
 
 function showResult() {
@@ -83,6 +83,9 @@ function showResult() {
     resultEl.innerHTML = `Você acertou ${score} de ${quizData.length}`;
     if (score >= 4) {
         playBtn.style.display = "inline-block";
+        playBtn.onclick = function() {
+            window.location.href = "jogo-cabinha/index.html";
+        };
     } else {
         playBtn.style.display = "none";
         resultEl.innerHTML += "<br><span style='color:red;'>Você precisa acertar pelo menos 4 para acessar o jogo!</span>";
@@ -90,3 +93,4 @@ function showResult() {
 }
 
 loadQuestion();
+
