@@ -1,5 +1,5 @@
 const config = {
-  
+
   type: Phaser.AUTO,
   width: window.innerWidth,
   height: window.innerHeight,
@@ -30,6 +30,12 @@ let scoreText;
 let gameOver = false;
 let isMovingLeft = false;
 let isMovingRight = false;
+let hitSound;
+let vidas = 3;
+let vidasText;
+let nivel = 1;
+let nivelText;
+let ranking = [];
 
 
 function preload() {
@@ -37,13 +43,58 @@ function preload() {
   this.load.image('cantil', 'assets/images/cantil.png');
   this.load.image('rede', 'assets/images/rede.png');
   this.load.image('inimigo_racismo', 'assets/images/racismo.png');
-  this.load.image('inimigo_preconceito', 'assets/images/inimigo_preconceito.png');
+  this.load.image('inimigo_preconceito', 'assets/images/discriminacao.png');
 
   // Botões mobile (pode usar imagens customizadas)
   this.load.image('btnLeft', 'assets/images/btn_left.png');
   this.load.image('btnRight', 'assets/images/btn_right.png');
   this.load.image('btnCantil', 'assets/images/btn_cantil.png');
   this.load.image('btnRede', 'assets/images/btn_rede.png');
+  this.load.audio('hit', 'assets/hit.mp3'); // Adicione o arquivo assets/hit.mp3
+}
+
+function loadRanking() {
+  const data = localStorage.getItem('cabinha_ranking');
+  ranking = data ? JSON.parse(data) : [];
+}
+function saveRanking() {
+  localStorage.setItem('cabinha_ranking', JSON.stringify(ranking));
+}
+function showRanking(scene) {
+  let txt = 'RANKING\n\n';
+  ranking.slice(0, 5).forEach((item, i) => {
+    txt += `${i + 1}. ${item} pts\n`;
+  });
+  if (!scene.rankingText) {
+    scene.rankingText = scene.add.text(config.width / 2, config.height / 2 + 80, txt, {
+      fontSize: '32px',
+      fill: '#fff',
+      fontFamily: 'sans-serif',
+      align: 'center',
+      backgroundColor: '#222e',
+      padding: { x: 30, y: 30 },
+      fontStyle: 'bold',
+      stroke: '#000',
+      strokeThickness: 4
+    }).setOrigin(0.5).setDepth(20);
+  } else {
+    scene.rankingText.setText(txt).setVisible(true).setDepth(20);
+  }
+}
+
+function getVelocidadePorNivel(tipo, nivel) {
+  // Valores ajustados para cada nível
+  if (tipo === 'inimigo_racismo') {
+    if (nivel === 1) return Phaser.Math.Between(60, 80);      // Lento
+    if (nivel === 2) return Phaser.Math.Between(100, 120);    // Médio
+    if (nivel === 3) return Phaser.Math.Between(150, 170);    // Rápido
+    if (nivel === 4) return Phaser.Math.Between(200, 230);    // Muito rápido
+  } else {
+    if (nivel === 1) return Phaser.Math.Between(80, 100);
+    if (nivel === 2) return Phaser.Math.Between(130, 150);
+    if (nivel === 3) return Phaser.Math.Between(180, 200);
+    if (nivel === 4) return Phaser.Math.Between(240, 270);
+  }
 }
 
 function create() {
@@ -51,6 +102,7 @@ function create() {
   const bottomY = this.scale.height;
 
   player = this.physics.add.sprite(centerX, bottomY - 50, 'cabinha');
+  player.setScale(0.10);
   player.setCollideWorldBounds(true);
 
   cursors = this.input.keyboard.createCursorKeys();
@@ -58,17 +110,11 @@ function create() {
   redes = this.physics.add.group();
   enemies = this.physics.add.group();
 
-  for (let i = 0; i < 3; i++) {
-    enemies.create(150 + i * 200, 100, 'inimigo_racismo').setVelocityX(Phaser.Math.Between(50, 100)).setBounce(1).setCollideWorldBounds(true);
-    enemies.create(100 + i * 250, 200, 'inimigo_preconceito').setVelocityX(Phaser.Math.Between(-100, -50)).setBounce(1).setCollideWorldBounds(true);
-  }
-
-  this.input.keyboard.on('keydown-SPACE', () => {
-    shootCantil(this);
-  });
-
-  this.input.keyboard.on('keydown-R', () => {
-    shootRede(this);
+  vidas = 10;
+  vidasText = this.add.text(16, 40, 'Vidas: 10', {
+    fontSize: '20px',
+    fill: '#fff',
+    fontFamily: 'sans-serif'
   });
 
   scoreText = this.add.text(16, 16, 'Pontuação: 0', {
@@ -77,26 +123,91 @@ function create() {
     fontFamily: 'sans-serif'
   });
 
+  nivelText = this.add.text(16, 64, 'Nível: 1', {
+    fontSize: '20px',
+    fill: '#fff',
+    fontFamily: 'sans-serif'
+  });
+
   this.add.text(centerX - 150, 40, 'Jogo do Cabinha!', {
-    font: '32px Arial',
+    font: '32px sans-serif',
     fill: '#228B22'
+  });
+
+  loadRanking();
+
+  this.nInimigos = 0;
+  this.inimigosPorNivel = 10;
+  this.velocidadeBaseRacismo = 80;
+  this.velocidadeBasePreconceito = 100;
+  for (let i = 0; i < 3; i++) {
+    enemies.create(150 + i * 200, 100, 'inimigo_racismo')
+      .setVelocityY(getVelocidadePorNivel('inimigo_racismo', nivel))
+      .setBounce(0)
+      .setCollideWorldBounds(false)
+      .setScale(0.6);
+    enemies.create(100 + i * 250, 0, 'inimigo_preconceito')
+      .setVelocityY(getVelocidadePorNivel('inimigo_preconceito', nivel))
+      .setBounce(0)
+      .setCollideWorldBounds(false)
+      .setScale(0.2);
+    this.nInimigos += 2;
+  }
+  // Spawn contínuo de inimigos
+  this.spawnEvent = this.time.addEvent({
+    delay: 2000,
+    callback: () => {
+      let tipo = Phaser.Math.Between(0, 1) === 0 ? 'inimigo_racismo' : 'inimigo_preconceito';
+      let x = Phaser.Math.Between(50, this.scale.width - 50);
+      let vel = getVelocidadePorNivel(tipo, nivel);
+      let escala = tipo === 'inimigo_racismo' ? 0.6 : 0.2;
+      enemies.create(x, 0, tipo)
+        .setVelocityY(vel)
+        .setBounce(0)
+        .setCollideWorldBounds(false)
+        .setScale(escala);
+      this.nInimigos++;
+    },
+    loop: true
+  });
+
+  this.input.keyboard.on('keydown-SPACE', () => {
+    shootProjectile(this, cantis, 'cantil');
+  });
+
+  this.input.keyboard.on('keydown-R', () => {
+    shootProjectile(this, redes, 'rede');
   });
 
   this.physics.add.overlap(cantis, enemies, hitEnemy, null, this);
   this.physics.add.overlap(redes, enemies, hitEnemy, null, this);
+  this.physics.add.overlap(enemies, player, hitPlayer, null, this);
 
   // Botões para mobile
   if (!this.sys.game.device.os.desktop) {
     createMobileControls(this);
   }
 
-  this.time.addEvent({
-    delay: 10000,
-    callback: () => {
-      const enemy = enemies.create(Phaser.Math.Between(100, 700), 0, 'inimigo_racismo');
-      enemy.setVelocityX(Phaser.Math.Between(100, 150)).setBounce(1).setCollideWorldBounds(true);
-    },
-    loop: true
+  // Botão de reiniciar após Game Over
+  this.restartButton = this.add.text(centerX, bottomY / 2 + 50, 'Reiniciar', {
+    fontSize: '28px',
+    fill: '#fff',
+    backgroundColor: '#228B22',
+    padding: { x: 20, y: 10 },
+    borderRadius: 10
+  }).setOrigin(0.5).setInteractive().setVisible(false);
+  this.restartButton.on('pointerdown', () => {
+    this.scene.restart();
+    gameOver = false;
+    score = 0;
+  });
+  // Atalho para reiniciar com Enter
+  this.input.keyboard.on('keydown-ENTER', () => {
+    if (gameOver) {
+      this.scene.restart();
+      gameOver = false;
+      score = 0;
+    }
   });
 }
 
@@ -108,14 +219,14 @@ function update() {
   else if (cursors.right.isDown || isMovingRight) player.setVelocityX(300);
 
   enemies.children.iterate((enemy) => {
-    if (enemy.y > config.height - 50) {
-      this.scene.pause();
-      this.add.text(config.width / 2 - 80, config.height / 2, 'Game Over', {
-        fontSize: '32px',
-        fill: '#ff0000',
-        fontFamily: 'sans-serif'
-      });
-      gameOver = true;
+    if (!enemy) return;
+    if (enemy.y > config.height) {
+      enemy.destroy();
+      vidas--;
+      vidasText.setText('Vidas: ' + vidas);
+      if (vidas <= 0 && !gameOver) {
+        hitPlayer.call(this, player, enemy);
+      }
     }
   });
 }
@@ -125,41 +236,70 @@ function hitEnemy(projetil, enemy) {
   enemy.destroy();
   score += 10;
   scoreText.setText('Pontuação: ' + score);
-}
-
-function shootCantil(scene) {
-  if (scene.time.now > lastShotCantil + 300) {
-    const shot = cantis.create(player.x, player.y - 20, 'cantil');
-    shot.setVelocityY(-300);
-    lastShotCantil = scene.time.now;
+  if (hitSound) hitSound.play();
+  // Nível aumenta a cada 100 pontos
+  let novoNivel = Math.min(1 + Math.floor(score / 100), 4);
+  if (novoNivel > nivel) {
+    nivel = novoNivel;
+    nivelText.setText('Nível: ' + nivel);
+    vidas = 10;
+    vidasText.setText('Vidas: 10');
   }
 }
 
-function shootRede(scene) {
-  if (scene.time.now > lastShotRede + 300) {
-    const shot = redes.create(player.x, player.y - 20, 'rede');
-    shot.setVelocityY(-300);
-    lastShotRede = scene.time.now;
+function hitPlayer(player, enemy) {
+  enemy.destroy();
+  vidas--;
+  vidasText.setText('Vidas: ' + vidas);
+  if (vidas <= 0 && !gameOver) {
+    gameOver = true;
+    this.physics.pause();
+    if (!this.gameOverText) {
+      this.gameOverText = this.add.text(config.width / 2, config.height / 2, 'Game Over', {
+        fontSize: '32px',
+        fill: '#ff0000',
+        fontFamily: 'sans-serif'
+      }).setOrigin(0.5);
+    } else {
+      this.gameOverText.setVisible(true);
+    }
+    // Salva e mostra ranking
+    ranking.push(score);
+    ranking = ranking.sort((a, b) => b - a).slice(0, 5);
+    saveRanking();
+    showRanking(this);
+    this.restartButton.setVisible(true).setDepth(10);
+    this.input.keyboard.once('keydown-ENTER', () => {
+      this.scene.restart();
+      gameOver = false;
+      score = 0;
+    });
+    this.restartButton.once('pointerdown', () => {
+      this.scene.restart();
+      gameOver = false;
+      score = 0;
+    });
   }
 }
 
-function createMobileControls(scene) {
-  const w = scene.scale.width;
-  const h = scene.scale.height;
-
-  leftButton = scene.add.image(80, h - 80, 'btnLeft').setInteractive().setAlpha(0.8).setScale(0.8);
-  rightButton = scene.add.image(180, h - 80, 'btnRight').setInteractive().setAlpha(0.8).setScale(0.8);
-  shootCantilButton = scene.add.image(w - 180, h - 80, 'btnCantil').setInteractive().setAlpha(0.8).setScale(0.8);
-  shootRedeButton = scene.add.image(w - 80, h - 80, 'btnRede').setInteractive().setAlpha(0.8).setScale(0.8);
-
-  leftButton.on('pointerdown', () => isMovingLeft = true);
-  leftButton.on('pointerup', () => isMovingLeft = false);
-  leftButton.on('pointerout', () => isMovingLeft = false);
-
-  rightButton.on('pointerdown', () => isMovingRight = true);
-  rightButton.on('pointerup', () => isMovingRight = false);
-  rightButton.on('pointerout', () => isMovingRight = false);
-
-  shootCantilButton.on('pointerdown', () => shootCantil(scene));
-  shootRedeButton.on('pointerdown', () => shootRede(scene));
+// Função genérica para tiros
+function shootProjectile(scene, group, key) {
+  const now = scene.time.now;
+  if (key === 'cantil' && now > lastShotCantil + 300) {
+    const shot = group.create(player.x, player.y - 20, key);
+    shot.setVelocityY(-300);
+    lastShotCantil = now;
+  } else if (key === 'rede' && now > lastShotRede + 300) {
+    const shot = group.create(player.x, player.y - 20, key);
+    shot.setVelocityY(-300);
+    lastShotRede = now;
+  }
 }
+
+// Ajuste dinâmico do tamanho do jogo
+window.addEventListener('resize', () => {
+  game.scale.resize(window.innerWidth, window.innerHeight);
+});
+
+// Organização dos assets: 
+// Recomenda-se separar assets em subpastas: assets/player, assets/inimigos, assets/ui, etc.
