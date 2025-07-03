@@ -101,7 +101,36 @@ function create() {
   const centerX = this.scale.width / 2;
   const bottomY = this.scale.height;
 
-  player = this.physics.add.sprite(centerX, bottomY - 50, 'cabinha');
+  // Painel de instruções e botão Play
+  const instrucoes = this.add.text(
+    this.scale.width / 2,
+    this.scale.height / 2,
+    'Como jogar:\n← → ou A D: mover\nEspaço: atira cantil\nR: atira rede\nEnter: reiniciar após Game Over',
+    {
+      fontSize: '22px',
+      fill: '#fff',
+      fontFamily: 'sans-serif',
+      align: 'center',
+      backgroundColor: '#222a',
+      padding: { x: 30, y: 20 }
+    }
+  ).setOrigin(0.5).setDepth(30);
+
+  const playButton = this.add.text(
+    this.scale.width / 2,
+    this.scale.height / 2 + 120,
+    '▶ Jogar',
+    {
+      fontSize: '32px',
+      fill: '#fff',
+      backgroundColor: '#228B22',
+      padding: { x: 40, y: 15 },
+      borderRadius: 10
+    }
+  ).setOrigin(0.5).setInteractive().setDepth(30);
+
+  // Elementos do jogo (inicialmente invisíveis)
+  player = this.physics.add.sprite(centerX, bottomY - 50, 'cabinha').setVisible(false);
   player.setScale(0.10);
   player.setCollideWorldBounds(true);
 
@@ -115,24 +144,24 @@ function create() {
     fontSize: '20px',
     fill: '#fff',
     fontFamily: 'sans-serif'
-  });
+  }).setVisible(false);
 
   scoreText = this.add.text(16, 16, 'Pontuação: 0', {
     fontSize: '20px',
     fill: '#fff',
     fontFamily: 'sans-serif'
-  });
+  }).setVisible(false);
 
   nivelText = this.add.text(16, 64, 'Nível: 1', {
     fontSize: '20px',
     fill: '#fff',
     fontFamily: 'sans-serif'
-  });
+  }).setVisible(false);
 
-  this.add.text(centerX - 150, 40, 'Jogo do Cabinha!', {
+  const titulo = this.add.text(centerX - 150, 40, 'Jogo do Cabinha!', {
     font: '32px sans-serif',
     fill: '#228B22'
-  });
+  }).setVisible(false);
 
   loadRanking();
 
@@ -141,22 +170,25 @@ function create() {
   this.velocidadeBaseRacismo = 80;
   this.velocidadeBasePreconceito = 100;
   for (let i = 0; i < 3; i++) {
-    enemies.create(150 + i * 200, 100, 'inimigo_racismo')
+    const e1 = enemies.create(150 + i * 200, 100, 'inimigo_racismo')
       .setVelocityY(getVelocidadePorNivel('inimigo_racismo', nivel))
       .setBounce(0)
       .setCollideWorldBounds(false)
-      .setScale(0.6);
-    enemies.create(100 + i * 250, 0, 'inimigo_preconceito')
+      .setScale(0.6)
+      .setVisible(false);
+    const e2 = enemies.create(100 + i * 250, 0, 'inimigo_preconceito')
       .setVelocityY(getVelocidadePorNivel('inimigo_preconceito', nivel))
       .setBounce(0)
       .setCollideWorldBounds(false)
-      .setScale(0.2);
+      .setScale(0.2)
+      .setVisible(false);
     this.nInimigos += 2;
   }
-  // Spawn contínuo de inimigos
+  // Spawn contínuo de inimigos (só ativa após o play)
   this.spawnEvent = this.time.addEvent({
     delay: 2000,
     callback: () => {
+      if (!player.visible) return; // só gera inimigos se o jogo começou
       let tipo = Phaser.Math.Between(0, 1) === 0 ? 'inimigo_racismo' : 'inimigo_preconceito';
       let x = Phaser.Math.Between(50, this.scale.width - 50);
       let vel = getVelocidadePorNivel(tipo, nivel);
@@ -165,11 +197,26 @@ function create() {
         .setVelocityY(vel)
         .setBounce(0)
         .setCollideWorldBounds(false)
-        .setScale(escala);
+        .setScale(escala)
+        .setVisible(true);
       this.nInimigos++;
     },
     loop: true
   });
+
+  // Ativa o jogo ao clicar no botão ou pressionar Enter
+  function startGame() {
+    instrucoes.destroy();
+    playButton.destroy();
+    player.setVisible(true);
+    vidasText.setVisible(true);
+    scoreText.setVisible(true);
+    nivelText.setVisible(true);
+    titulo.setVisible(true);
+    enemies.children.iterate(e => e.setVisible(true));
+  }
+  playButton.on('pointerdown', startGame);
+  this.input.keyboard.once('keydown-ENTER', startGame);
 
   this.input.keyboard.on('keydown-SPACE', () => {
     shootProjectile(this, cantis, 'cantil');
